@@ -3,3 +3,4 @@ node_modules/
 .gemini/
 .env
 config.local.js
+env.txt
