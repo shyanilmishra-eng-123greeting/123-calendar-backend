@@ -172,6 +172,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const year = date.getFullYear();
         const month = date.getMonth();
         monthDisplay.textContent = `${monthNames[month]} ${year}`;
+		renderMonthNavigator(date);
 
         const firstDay = new Date(year, month, 1).getDay();
         const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -195,19 +196,23 @@ document.addEventListener("DOMContentLoaded", () => {
             tile.className = `cal-tile flex flex-col p-3 sm:p-4${isToday ? " is-today" : ""}${hasEventClass} overflow-hidden relative`;
 
             const topEvt = dayEvents.length > 0 ? dayEvents[0] : null;
+            const extraCount = dayEvents.length > 1 ? dayEvents.length - 1 : 0;
 
             tile.innerHTML = `
                 ${topEvt ? `
                     <img id="img-${dateStr}" src="${getFallback(topEvt.title)}" alt="${topEvt.title}" class="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 hover:scale-105" onerror="this.style.display='none'">
-                    <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/5 z-0 pointer-events-none"></div>
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent z-0 pointer-events-none"></div>
                 ` : ""}
-                <div class="flex items-start justify-between gap-3 relative z-10">
+                <div class="flex items-start justify-between gap-2 relative z-10">
                     <span class="day-number text-sm font-black ${isToday ? "" : (topEvt ? "text-zinc-900 backdrop-blur-xl bg-white/70" : "text-zinc-600")}">${day}</span>
-                    <span class="text-[10px] font-bold uppercase tracking-widest ${topEvt ? "text-white/90 drop-shadow-md" : "text-zinc-400"}">${dayNames[new Date(year, month, day).getDay()]}</span>
+                    <div class="flex items-center gap-1.5">
+                        ${extraCount > 0 ? `<button class="btn-more-events text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/30 hover:bg-white/30 transition-all" data-date="${dateStr}">+${extraCount} more</button>` : ""}
+                        <span class="text-[10px] font-bold uppercase tracking-widest ${topEvt ? "text-white/80 drop-shadow-sm" : "text-zinc-400"}">${dayNames[new Date(year, month, day).getDay()]}</span>
+                    </div>
                 </div>
                 ${topEvt ? `
                     <div class="flex-grow flex flex-col justify-end relative z-10 w-full pb-8">
-                        <div id="title-${dateStr}" class="text-xs sm:text-sm font-black text-white w-full uppercase tracking-wide leading-snug drop-shadow-lg">${topEvt.title}</div>
+                        <div id="title-${dateStr}" class="text-xs sm:text-sm font-black text-white w-full leading-snug drop-shadow-lg line-clamp-2">${topEvt.title}</div>
                     </div>
                 ` : "<div class='flex-grow'></div>"}
                 <div class="tile-actions relative z-10">
@@ -222,23 +227,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (dayEvents.length > 0) {
                 const imgEl = tile.querySelector(`#img-${dateStr}`);
-                const titleEl = tile.querySelector(`#title-${dateStr}`);
-                
                 getEventImage(dayEvents[0].title).then(url => {
                     if (imgEl) imgEl.src = url;
                 });
+            }
 
-                if (dayEvents.length > 1) {
-                    let evtIndex = 0;
-                    const intervalId = setInterval(async () => {
-                        evtIndex = (evtIndex + 1) % dayEvents.length;
-                        const nextEvt = dayEvents[evtIndex];
-                        if (titleEl) titleEl.textContent = nextEvt.title;
-                        const url = await getEventImage(nextEvt.title);
-                        if (imgEl) imgEl.src = url;
-                    }, 1000);
-                    cyclingIntervals.push(intervalId);
-                }
+            if (extraCount > 0) {
+                tile.querySelector(".btn-more-events").addEventListener("click", (event) => {
+                    event.stopPropagation();
+                    openMoreEventsModal(dateStr, dayEvents);
+                });
             }
 
             tile.querySelector(".btn-reminder").addEventListener("click", (event) => {
@@ -421,7 +419,30 @@ document.addEventListener("DOMContentLoaded", () => {
             renderReminderSetup(dateStr, evt, true);
         });
         modalBody.querySelector("#confirm-reminder-btn").addEventListener("click", () => {
-            window.alert(`Dummy reminder saved for ${evt ? evt.title : formatDateLabel(new Date(`${dateStr}T00:00:00`))} at ${userProfile.reminderTime}.`);
+            const phone = `${countryMeta.dialCode}${userProfile.phone}`;
+                const message = `Reminder: ${evt.title} on ${dateStr} at ${userProfile.reminderTime}`;
+
+                fetch("http://localhost:3000/send-whatsapp", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        phone: phone,
+                        message: message
+                    })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        alert("WhatsApp sent 🚀");
+                    } else {
+                        alert("Failed: " + data.error);
+                    }
+                })
+                .catch(err => {
+                    alert("Error sending WhatsApp");
+                });
             closeModal();
         });
     }
@@ -436,6 +457,51 @@ document.addEventListener("DOMContentLoaded", () => {
         bindProfileSave(() => {
             renderReminderConfirmation(dateStr, evt);
         });
+    }
+
+    function openMoreEventsModal(dateStr, dayEvents) {
+        const dateObj = new Date(`${dateStr}T00:00:00`);
+        modalTitle.textContent = formatDateLabel(dateObj);
+        modalDateDisplay.textContent = `${dayEvents.length} Events`;
+        modalMode.innerHTML = "<i class='fa-solid fa-calendar-days text-indigo-500'></i> All Events";
+        modalBody.innerHTML = `
+            <div class="space-y-2.5">
+                ${dayEvents.map((evt, i) => `
+                    <div class="flex items-center gap-3 p-3.5 rounded-2xl border border-zinc-100 bg-zinc-50/60 hover:bg-white hover:shadow-sm hover:border-zinc-200 transition-all group">
+                        <div class="w-9 h-9 shrink-0 rounded-xl overflow-hidden bg-zinc-200">
+                            <img src="${getFallback(evt.title)}" alt="${evt.title}" class="w-full h-full object-cover evt-thumb" data-evt="${evt.title}">
+                        </div>
+                        <span class="flex-grow text-sm font-bold text-zinc-800 leading-snug">${evt.title}</span>
+                        <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button class="more-reminder w-8 h-8 rounded-full bg-green-50 text-green-600 hover:bg-green-100 flex items-center justify-center text-xs transition-all" data-index="${i}" title="WhatsApp Reminder">
+                                <i class="fa-brands fa-whatsapp"></i>
+                            </button>
+                            <button class="more-greeting w-8 h-8 rounded-full bg-amber-50 text-amber-600 hover:bg-amber-100 flex items-center justify-center text-xs transition-all" data-index="${i}" title="Send Greeting">
+                                <i class="fa-solid fa-pen-nib"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join("")}
+            </div>
+        `;
+        // load thumbnails
+        modalBody.querySelectorAll(".evt-thumb").forEach(img => {
+            getEventImage(img.dataset.evt).then(url => { img.src = url; });
+        });
+        // bind action buttons
+        modalBody.querySelectorAll(".more-reminder").forEach(btn => {
+            btn.addEventListener("click", () => {
+                closeModal();
+                setTimeout(() => openModal(dateStr, "reminder", dayEvents[+btn.dataset.index]), 220);
+            });
+        });
+        modalBody.querySelectorAll(".more-greeting").forEach(btn => {
+            btn.addEventListener("click", () => {
+                closeModal();
+                setTimeout(() => openModal(dateStr, "greeting", dayEvents[+btn.dataset.index]), 220);
+            });
+        });
+        showModal();
     }
 
     function openModal(dateStr, mode, specificEvt = null) {
@@ -524,6 +590,39 @@ document.addEventListener("DOMContentLoaded", () => {
             modal.classList.add("scale-100", "opacity-100");
         }, 20);
     }
+	
+	function renderMonthNavigator(date) {
+    const nav = document.getElementById("month-nav");
+    if (!nav) return;
+
+    nav.innerHTML = "";
+
+    const currentMonth = date.getMonth();
+    const currentYear = date.getFullYear();
+
+    for (let offset = -6; offset <= 6; offset++) {
+        const tempDate = new Date(currentYear, currentMonth + offset, 1);
+
+        const btn = document.createElement("button");
+
+        const isActive = offset === 0;
+
+        btn.className = isActive
+		? "px-6 py-3 rounded-xl bg-white text-blue-700 font-bold text-sm sm:text-base shadow-md border border-blue-200 font-headline transition-all duration-200"
+		: "px-4 py-2.5 rounded-xl text-blue-400 hover:text-blue-600 hover:bg-white/70 font-semibold text-xs sm:text-sm transition-all duration-200";
+
+        btn.textContent = isActive
+            ? `${monthNames[tempDate.getMonth()]} ${tempDate.getFullYear()}`
+            : `${monthNames[tempDate.getMonth()].slice(0, 3)} ${String(tempDate.getFullYear()).slice(2)}`;
+
+        btn.addEventListener("click", () => {
+            currentDate = new Date(tempDate);
+            renderCalendar(currentDate);
+        });
+
+        nav.appendChild(btn);
+		}
+	}
 
     function closeModal() {
         modal.classList.remove("scale-100", "opacity-100");

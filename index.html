@@ -58,7 +58,7 @@
             transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
             position: relative;
             cursor: pointer;
-            min-height: 11rem;
+            min-height: 13rem;
             box-shadow: 0 4px 10px rgba(0,0,0,0.015);
         }
 
@@ -198,16 +198,34 @@
 
         @media (min-width: 640px) {
             .cal-tile {
-                min-height: 12.5rem;
+                min-height: 15rem;
             }
             .sticky-legend {
                 margin-left: -2rem; margin-right: -2rem; padding-left: 2rem; padding-right: 2rem;
             }
         }
+		.scrollbar-hide::-webkit-scrollbar {
+			display: none;
+		}
+		.scrollbar-hide {
+			-ms-overflow-style: none;
+			scrollbar-width: none;
+		}
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .btn-more-events {
+            white-space: nowrap;
+            line-height: 1;
+        }
     </style>
 </head>
 
 <body class="min-h-screen font-sans">
+
 
     <header class="premium-header w-full flex justify-center mb-6">
         <div class="max-w-[1600px] w-full flex justify-between items-center px-4 sm:px-6 lg:px-8">
@@ -226,20 +244,18 @@
     <main class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
         <div class="bg-white rounded-3xl shadow-sm border border-zinc-100 overflow-hidden">
 
-            <div class="p-6 sm:p-10 border-b border-zinc-100/50 flex flex-col sm:flex-row justify-between items-center gap-4 bg-white/50">
-                <h2 id="month-display"
-                    class="text-4xl sm:text-6xl font-black font-headline tracking-tighter text-zinc-900 drop-shadow-sm">April 2026</h2>
-                <div class="flex bg-zinc-100/80 backdrop-blur-sm p-1.5 rounded-full shadow-inner">
-                    <button id="prev-month"
-                        class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white hover:shadow-sm transition-all text-zinc-700">
-                        <i class="fa-solid fa-chevron-left text-sm"></i>
-                    </button>
-                    <button id="next-month"
-                        class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white hover:shadow-sm transition-all text-zinc-700">
-                        <i class="fa-solid fa-chevron-right text-sm"></i>
-                    </button>
-                </div>
-            </div>
+			<div class="px-6 sm:px-10 py-6 border-b border-zinc-100 bg-gradient-to-r from-white to-zinc-50/80">
+				
+				<div id="month-nav"
+					class="flex items-center gap-3 overflow-x-auto whitespace-nowrap scrollbar-hide rounded-2xl border border-blue-100 bg-blue-50/70 p-3 shadow-inner">
+
+					<span id="month-display" class="hidden"></span>
+    <button id="prev-month" class="hidden"></button>
+    <button id="next-month" class="hidden"></button>
+
+				</div>
+
+			</div>
 
             <div class="p-4 sm:p-8">
                 <div class="sticky-legend hidden sm:grid grid-cols-7 mb-4 text-center">
